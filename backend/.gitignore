@@ -31,3 +31,7 @@ KMS
 
 # GitHub CLI
 .github/personal-instructions.md
+src/memory.db
+memory.db
+*.db
+.env.local

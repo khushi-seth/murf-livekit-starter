@@ -1,50 +1,187 @@
+
+import json
 import logging
 
 from dotenv import load_dotenv
 from livekit import rtc
+
 from livekit.agents import (
     Agent,
     AgentServer,
     AgentSession,
     JobContext,
     JobProcess,
+    RunContext,
     cli,
-    inference,
+    function_tool,
     tokenize,
     room_io,
 )
-from livekit.plugins import murf, silero, google, deepgram, noise_cancellation
+
+from livekit.plugins import (
+    murf,
+    silero,
+    google,
+    deepgram,
+    noise_cancellation,
+)
+
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
+
+from memory import get_user, save_user, init_database
+
 
 logger = logging.getLogger("agent")
 
 load_dotenv(".env.local")
 
-# Change this prompt to change what your voice agent does.
-# See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+init_database()
+
+
+SYSTEM_PROMPT = """
+You are a friendly and efficient Financial Services voice assistant.
+
+Help users understand financial schemes, eligibility, and general
+financial information.
+
+MEMORY RULES:
+
+- At the beginning of every conversation, use the lookup_user tool.
+- If the caller is known, greet them by name and use saved information.
+- If the caller is new, politely ask for their name.
+- Never claim to remember something unless the lookup_user tool returned it.
+- Before saving personal information, explicitly ask for permission.
+- Only save information after the caller clearly says yes.
+- If the caller says no, do not save anything.
+- Never save Aadhaar numbers, PAN numbers, bank account numbers,
+  card numbers, OTPs, passwords, UPI PINs, or financial credentials.
+- Only save useful information relevant to future conversations.
+- Do not invent memories.
+
+LANGUAGE & SCRIPT:
+
+- Reply in the language used by the caller.
+- If the caller speaks Hindi, reply in Hindi.
+- Hindi must be written in Devanagari script.
+- Do not write Hindi using Roman/English letters.
+"""
 
 
 class Assistant(Agent):
-    def __init__(self) -> None:
-        super().__init__(instructions=SYSTEM_PROMPT)
 
-    # To add tools, use the @function_tool decorator.
-    # Here's an example that adds a simple weather tool.
-    # You also have to add `from livekit.agents import function_tool, RunContext` to the top of this file
-    # @function_tool
-    # async def lookup_weather(self, context: RunContext, location: str):
-    #     """Use this tool to look up current weather information in the given location.
-    #
-    #     If the location is not supported by the weather service, the tool will indicate this. You must tell the user the location's weather is unavailable.
-    #
-    #     Args:
-    #         location: The location to look up weather information for (e.g. city name)
-    #     """
-    #
-    #     logger.info(f"Looking up weather for {location}")
-    #
-    #     return "sunny with a temperature of 70 degrees."
+    def __init__(self, user_id: str) -> None:
+        self.user_id = user_id
+
+        super().__init__(
+            instructions=SYSTEM_PROMPT
+        )
+
+    @function_tool
+    async def lookup_user(
+        self,
+        context: RunContext,
+    ) -> str:
+        """Look up the current caller in the memory database."""
+
+        logger.info(
+            f"Looking up caller: {self.user_id}"
+        )
+
+        user = get_user(self.user_id)
+
+        if user is None:
+            logger.info("No saved user found.")
+            return "No saved information exists for this caller."
+
+        logger.info(
+            f"Found saved user: {user['name']}"
+        )
+
+        return json.dumps(user)
+
+
+    @function_tool
+    async def save_user_memory(
+        self,
+        context: RunContext,
+        name: str,
+        language_preference: str,
+        facts: str,
+    ) -> str:
+        """Save caller information after explicit permission."""
+
+        logger.info(
+            f"Saving approved memory for caller: {self.user_id}"
+        )
+
+        try:
+            # Try JSON first.
+            try:
+                parsed_facts = json.loads(facts)
+
+                if not isinstance(parsed_facts, dict):
+                    parsed_facts = {
+                        "memory": str(parsed_facts)
+                    }
+
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(
+                    "Facts were not valid JSON. Saving as plain text."
+                )
+
+                parsed_facts = {
+                    "memory": facts
+                }
+
+            # Block sensitive financial information.
+            sensitive_words = [
+                "aadhaar",
+                "aadhar",
+                "pan number",
+                "account number",
+                "bank account",
+                "card number",
+                "credit card",
+                "debit card",
+                "otp",
+                "password",
+                "upi pin",
+                "pin",
+            ]
+
+            facts_text = json.dumps(parsed_facts).lower()
+
+            for word in sensitive_words:
+                if word in facts_text:
+                    logger.warning(
+                        f"Blocked sensitive information: {word}"
+                    )
+
+                    return (
+                        "I cannot save sensitive financial information."
+                    )
+
+            save_user(
+                user_id=self.user_id,
+                name=name,
+                language_preference=language_preference,
+                facts=parsed_facts,
+            )
+
+            logger.info(
+                f"User memory saved successfully for {self.user_id}"
+            )
+
+            return (
+                "The approved information has been saved successfully."
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to save user memory."
+            )
+
+            return "I could not save that information."
 
 
 server = AgentServer()
@@ -59,61 +196,44 @@ server.setup_fnc = prewarm
 
 @server.rtc_session(agent_name="my-agent")
 async def my_agent(ctx: JobContext):
-    # Logging setup
-    # Add any other context you want in all log entries here
+
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
-    # Set up a voice AI pipeline using Murf Falcon, Gemini, Deepgram, and the LiveKit turn detector
+    await ctx.connect()
+
+    participant = await ctx.wait_for_participant()
+
+    user_id = participant.identity
+
+    logger.info(
+        f"Caller joined: identity={user_id}"
+    )
+
     session = AgentSession(
-        # Speech-to-text (STT) is your agent's ears, turning the user's speech into text that the LLM can understand
-        # See all available models at https://docs.livekit.io/agents/models/stt/
-        stt=deepgram.STT(model="nova-3"),
-        # A Large Language Model (LLM) is your agent's brain, processing user input and generating a response
-        # See all available models at https://docs.livekit.io/agents/models/llm/
+        stt=deepgram.STT(
+            model="nova-3",
+        ),
         llm=google.LLM(
-                model="gemini-3.5-flash-lite",
-            ),
-        # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
-        # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
+            model="gemini-3.5-flash-lite",
+        ),
         tts=murf.TTS(
-                voice="Anisha", 
-                locale="en-IN",
-                style="Conversation",
-                tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
-                text_pacing=True
+            voice="Anisha",
+            locale="en-IN",
+            style="Conversation",
+            tokenizer=tokenize.basic.SentenceTokenizer(
+                min_sentence_len=2
             ),
-        # VAD and turn detection are used to determine when the user is speaking and when the agent should respond
-        # See more at https://docs.livekit.io/agents/build/turns
+            text_pacing=True,
+        ),
         turn_detection=MultilingualModel(),
         vad=ctx.proc.userdata["vad"],
-        # allow the LLM to generate a response while waiting for the end of turn
-        # See more at https://docs.livekit.io/agents/build/audio/#preemptive-generation
         preemptive_generation=True,
     )
 
-    # To use a realtime model instead of a voice pipeline, use the following session setup instead.
-    # (Note: This is for the OpenAI Realtime API. For other providers, see https://docs.livekit.io/agents/models/realtime/))
-    # 1. Install livekit-agents[openai]
-    # 2. Set OPENAI_API_KEY in .env.local
-    # 3. Add `from livekit.plugins import openai` to the top of this file
-    # 4. Use the following session setup instead of the version above
-    # session = AgentSession(
-    #     llm=openai.realtime.RealtimeModel(voice="marin")
-    # )
-
-    # # Add a virtual avatar to the session, if desired
-    # # For other providers, see https://docs.livekit.io/agents/models/avatar/
-    # avatar = hedra.AvatarSession(
-    #   avatar_id="...",  # See https://docs.livekit.io/agents/models/avatar/plugins/hedra
-    # )
-    # # Start the avatar and wait for it to join
-    # await avatar.start(session, room=ctx.room)
-
-    # Start the session, which initializes the voice pipeline and warms up the models
     await session.start(
-        agent=Assistant(),
+        agent=Assistant(user_id=user_id),
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
@@ -126,9 +246,6 @@ async def my_agent(ctx: JobContext):
             ),
         ),
     )
-
-    # Join the room and connect to the user
-    await ctx.connect()
 
 
 if __name__ == "__main__":
