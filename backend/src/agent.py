@@ -1,6 +1,7 @@
 
 import json
 import logging
+import uuid
 
 from dotenv import load_dotenv
 from livekit import rtc
@@ -48,6 +49,9 @@ You are a friendly and efficient Financial Services voice assistant.
 Help users understand financial schemes, eligibility, and general
 financial information.
 
+You are a voice AI assistant. Be helpful, concise, natural, and honest.
+Never pretend that you performed an action when you did not.
+
 CURRENCY TOOL:
 
 - You have a currency conversion tool called convert_currency.
@@ -63,6 +67,7 @@ CURRENCY TOOL:
   exchange-rate service is temporarily unavailable.
 - Never invent a rate when the data source is unavailable.
 
+
 MEMORY RULES:
 
 - At the beginning of every conversation, use the lookup_user tool.
@@ -76,6 +81,57 @@ MEMORY RULES:
   card numbers, OTPs, passwords, UPI PINs, or financial credentials.
 - Only save useful information relevant to future conversations.
 - Do not invent memories.
+
+
+HUMAN ESCALATION RULES:
+
+- You are an AI assistant and should recognize when a human
+  representative is more appropriate.
+- Escalate when the caller reports possible fraud, an unauthorized
+  transaction, suspicious account activity, a serious financial issue,
+  or explicitly asks to speak with a human representative.
+- Do not pretend that you can investigate, block, reverse, refund,
+  or resolve a financial transaction unless an actual tool performs
+  that action.
+- When escalation is appropriate, first explain briefly why human
+  assistance is needed.
+- ALWAYS ask the caller for explicit permission before creating
+  a human support request.
+- Do NOT call escalate_to_human until the caller clearly agrees.
+- If the caller says no, do not create an escalation request.
+- If the caller says yes, call the escalate_to_human tool.
+- After the tool returns a reference ID, tell the caller the reference ID.
+- Explain that a human financial support representative can review
+  the request.
+- Never claim that a human representative has already contacted them.
+- Never claim that the issue has already been resolved.
+- Keep the escalation conversation short and clear.
+
+
+EXAMPLES OF WHEN TO ESCALATE:
+
+Example 1:
+Caller: "I think someone used my account."
+Assistant: "That could be a potential fraud issue. This should be
+reviewed by a human financial support representative. Would you like
+me to create a support request?"
+
+Example 2:
+Caller: "I don't recognize this transaction."
+Assistant: "This may require human review. Would you like me to create
+a support request?"
+
+Example 3:
+Caller: "I want to talk to a human."
+Assistant: "Of course. I can create a support request for human
+assistance. Would you like me to do that?"
+
+If the caller says yes:
+Call escalate_to_human.
+
+If the caller says no:
+Do not call the tool.
+
 
 LANGUAGE & SCRIPT:
 
@@ -336,6 +392,38 @@ class Assistant(Agent):
                 "The exchange-rate service is temporarily unavailable. "
                 "I don't want to guess the rate, so please try again shortly."
             )
+
+
+    @function_tool
+    async def escalate_to_human(
+        self,
+        context: RunContext,
+        reason: str,
+    ) -> str:
+        """
+        Create a human support request after the caller explicitly
+        gives permission.
+
+        This is used for situations such as suspected fraud,
+        unauthorized transactions, serious account issues, or
+        requests to speak with a human representative.
+        """
+
+        # Generate a simple reference ID for the Day 7 escalation demo.
+        reference_id = f"FIN-{str(uuid.uuid4())[:4].upper()}"
+
+        logger.info(
+            f"Human escalation created | "
+            f"Reference ID: {reference_id} | "
+            f"Caller: {self.user_id} | "
+            f"Reason: {reason}"
+        )
+
+        return (
+            f"Human support request created successfully. "
+            f"Your reference ID is {reference_id}. "
+            f"A financial support representative can review your case."
+        )
 
 
 server = AgentServer()
