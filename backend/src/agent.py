@@ -1,4 +1,3 @@
-
 import json
 import logging
 import uuid
@@ -32,11 +31,16 @@ from livekit.plugins import (
 
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
-from memory import get_user, save_user, init_database
+from memory import (
+    get_user,
+    save_user,
+    init_database,
+    start_call,
+    end_call,
+)
 
 
 logger = logging.getLogger("agent")
-
 
 load_dotenv(".env.local")
 
@@ -52,88 +56,61 @@ financial information.
 You are a voice AI assistant. Be helpful, concise, natural, and honest.
 Never pretend that you performed an action when you did not.
 
+
+SUCCESS RULE:
+
+A successful call means the caller successfully receives useful
+financial information or completes a financial request.
+
+Examples:
+
+1. The caller receives financial information.
+2. The caller completes an eligibility enquiry.
+3. The caller receives a document list.
+4. The caller successfully completes a currency conversion.
+5. The caller successfully creates a human-help request.
+
+After successfully completing the caller's request, use the
+mark_call_success tool when appropriate.
+
+Do not invent financial information.
+
+
 CURRENCY TOOL:
 
-- You have a currency conversion tool called convert_currency.
-- Use it whenever the caller asks for a current currency conversion
-  or current exchange rate.
-- Do not guess or invent exchange rates.
-- The tool fetches the latest available exchange-rate data from
-  an external financial data source.
-- Always mention the date of the rate when giving the result.
-- Speak the result naturally. Never read JSON, API fields, or
-  technical information aloud.
-- If the currency tool fails, clearly tell the caller that the
-  exchange-rate service is temporarily unavailable.
-- Never invent a rate when the data source is unavailable.
+- Use convert_currency for currency conversion requests.
+- Never guess exchange rates.
+- Always mention the date of the available exchange rate.
+- If the service fails, tell the caller honestly.
+- Never invent a rate.
 
 
 MEMORY RULES:
 
-- At the beginning of every conversation, use the lookup_user tool.
-- If the caller is known, greet them by name and use saved information.
+- At the beginning of every conversation, use lookup_user.
+- If the caller is known, greet them by name.
 - If the caller is new, politely ask for their name.
-- Never claim to remember something unless the lookup_user tool returned it.
-- Before saving personal information, explicitly ask for permission.
-- Only save information after the caller clearly says yes.
-- If the caller says no, do not save anything.
+- Never claim to remember something unless lookup_user returned it.
+- Before saving personal information, ask for permission.
+- Only save information after the caller clearly agrees.
 - Never save Aadhaar numbers, PAN numbers, bank account numbers,
-  card numbers, OTPs, passwords, UPI PINs, or financial credentials.
-- Only save useful information relevant to future conversations.
+  card numbers, OTPs, passwords, UPI PINs, or other financial credentials.
 - Do not invent memories.
 
 
-HUMAN ESCALATION RULES:
+HUMAN ESCALATION:
 
-- You are an AI assistant and should recognize when a human
-  representative is more appropriate.
-- Escalate when the caller reports possible fraud, an unauthorized
-  transaction, suspicious account activity, a serious financial issue,
-  or explicitly asks to speak with a human representative.
-- Do not pretend that you can investigate, block, reverse, refund,
-  or resolve a financial transaction unless an actual tool performs
-  that action.
-- When escalation is appropriate, first explain briefly why human
-  assistance is needed.
-- ALWAYS ask the caller for explicit permission before creating
-  a human support request.
-- Do NOT call escalate_to_human until the caller clearly agrees.
-- If the caller says no, do not create an escalation request.
-- If the caller says yes, call the escalate_to_human tool.
-- After the tool returns a reference ID, tell the caller the reference ID.
-- Explain that a human financial support representative can review
-  the request.
-- Never claim that a human representative has already contacted them.
-- Never claim that the issue has already been resolved.
-- Keep the escalation conversation short and clear.
+- Escalate when the caller reports possible fraud,
+  unauthorized transactions, suspicious account activity,
+  or explicitly asks for a human.
+- Ask for explicit permission before creating a support request.
+- If the caller says yes, call escalate_to_human.
+- If the caller says no, do not call the tool.
+- Never claim that a human has already contacted the caller.
+- Never claim that an issue has already been resolved.
 
 
-EXAMPLES OF WHEN TO ESCALATE:
-
-Example 1:
-Caller: "I think someone used my account."
-Assistant: "That could be a potential fraud issue. This should be
-reviewed by a human financial support representative. Would you like
-me to create a support request?"
-
-Example 2:
-Caller: "I don't recognize this transaction."
-Assistant: "This may require human review. Would you like me to create
-a support request?"
-
-Example 3:
-Caller: "I want to talk to a human."
-Assistant: "Of course. I can create a support request for human
-assistance. Would you like me to do that?"
-
-If the caller says yes:
-Call escalate_to_human.
-
-If the caller says no:
-Do not call the tool.
-
-
-LANGUAGE & SCRIPT:
+LANGUAGE:
 
 - Reply in the language used by the caller.
 - If the caller speaks Hindi, reply in Hindi.
@@ -144,35 +121,73 @@ LANGUAGE & SCRIPT:
 
 class Assistant(Agent):
 
-    def __init__(self, user_id: str) -> None:
+    def __init__(
+        self,
+        user_id: str,
+        call_id: int,
+    ) -> None:
+
         self.user_id = user_id
+        self.call_id = call_id
+
+        # Day 8 call tracking
+        self.call_success = False
 
         super().__init__(
             instructions=SYSTEM_PROMPT
         )
+
+
+    @function_tool
+    async def mark_call_success(
+        self,
+        context: RunContext,
+    ) -> str:
+
+        """Mark the current call as successful."""
+
+        self.call_success = True
+
+        logger.info(
+            f"CALL MARKED SUCCESS | call_id={self.call_id}"
+        )
+
+        return "The call has been marked as successful."
+
 
     @function_tool
     async def lookup_user(
         self,
         context: RunContext,
     ) -> str:
-        """Look up the current caller in the memory database."""
+
+        """Look up the current caller in memory."""
 
         logger.info(
             f"Looking up caller: {self.user_id}"
         )
 
-        user = get_user(self.user_id)
+        user = get_user(
+            self.user_id
+        )
 
         if user is None:
-            logger.info("No saved user found.")
-            return "No saved information exists for this caller."
+
+            logger.info(
+                "No saved user found."
+            )
+
+            return (
+                "No saved information exists for this caller."
+            )
 
         logger.info(
             f"Found saved user: {user['name']}"
         )
 
-        return json.dumps(user)
+        return json.dumps(
+            user
+        )
 
 
     @function_tool
@@ -183,35 +198,42 @@ class Assistant(Agent):
         language_preference: str,
         facts: str,
     ) -> str:
+
         """Save caller information after explicit permission."""
 
         logger.info(
-            f"Saving approved memory for caller: {self.user_id}"
+            f"Saving approved memory for {self.user_id}"
         )
 
         try:
 
-            # Try JSON first.
             try:
-                parsed_facts = json.loads(facts)
 
-                if not isinstance(parsed_facts, dict):
+                parsed_facts = json.loads(
+                    facts
+                )
+
+                if not isinstance(
+                    parsed_facts,
+                    dict,
+                ):
+
                     parsed_facts = {
-                        "memory": str(parsed_facts)
+                        "memory": str(
+                            parsed_facts
+                        )
                     }
 
-            except (json.JSONDecodeError, TypeError):
-
-                logger.warning(
-                    "Facts were not valid JSON. Saving as plain text."
-                )
+            except (
+                json.JSONDecodeError,
+                TypeError,
+            ):
 
                 parsed_facts = {
                     "memory": facts
                 }
 
 
-            # Block sensitive financial information.
             sensitive_words = [
                 "aadhaar",
                 "aadhar",
@@ -227,7 +249,11 @@ class Assistant(Agent):
                 "pin",
             ]
 
-            facts_text = json.dumps(parsed_facts).lower()
+
+            facts_text = json.dumps(
+                parsed_facts
+            ).lower()
+
 
             for word in sensitive_words:
 
@@ -249,6 +275,7 @@ class Assistant(Agent):
                 facts=parsed_facts,
             )
 
+
             logger.info(
                 f"User memory saved successfully for {self.user_id}"
             )
@@ -264,7 +291,9 @@ class Assistant(Agent):
                 "Failed to save user memory."
             )
 
-            return "I could not save that information."
+            return (
+                "I could not save that information."
+            )
 
 
     @function_tool
@@ -275,26 +304,20 @@ class Assistant(Agent):
         from_currency: str,
         to_currency: str,
     ) -> str:
-        """
-        Convert money between currencies using the latest available
-        exchange-rate data from an external financial data source.
 
-        Use this tool whenever the user asks for a current currency
-        conversion or exchange rate.
+        """Convert currencies using latest available exchange-rate data."""
 
-        Do not use this tool for investment advice, stock predictions,
-        or historical exchange rates.
+        from_currency = (
+            from_currency
+            .upper()
+            .strip()
+        )
 
-        Args:
-            amount: Amount of money to convert.
-            from_currency: Three-letter source currency code,
-                such as USD or INR.
-            to_currency: Three-letter target currency code,
-                such as INR or USD.
-        """
-
-        from_currency = from_currency.upper().strip()
-        to_currency = to_currency.upper().strip()
+        to_currency = (
+            to_currency
+            .upper()
+            .strip()
+        )
 
 
         if amount < 0:
@@ -304,7 +327,10 @@ class Assistant(Agent):
             )
 
 
-        if len(from_currency) != 3 or len(to_currency) != 3:
+        if (
+            len(from_currency) != 3
+            or len(to_currency) != 3
+        ):
 
             raise ToolError(
                 "Please use three-letter currency codes such as USD or INR."
@@ -320,7 +346,9 @@ class Assistant(Agent):
             )
 
 
-            session = utils.http_context.http_session()
+            session = (
+                utils.http_context.http_session()
+            )
 
 
             async with session.get(
@@ -334,17 +362,21 @@ class Assistant(Agent):
                         "I couldn't reach the exchange-rate service right now."
                     )
 
-
                 data = await response.json()
 
 
-            rates = data.get("rates", {})
+            rates = data.get(
+                "rates",
+                {},
+            )
 
-            rate = rates.get(to_currency)
+            rate = rates.get(
+                to_currency
+            )
 
             rate_date = data.get(
                 "date",
-                "unknown date"
+                "unknown date",
             )
 
 
@@ -356,9 +388,13 @@ class Assistant(Agent):
                 )
 
 
-            rate = float(rate)
+            rate = float(
+                rate
+            )
 
-            converted_amount = amount * rate
+            converted_amount = (
+                amount * rate
+            )
 
 
             logger.info(
@@ -369,9 +405,15 @@ class Assistant(Agent):
             )
 
 
+            # Successful financial request
+            self.call_success = True
+
+
             return (
-                f"Latest available exchange rate from {rate_date}: "
-                f"1 {from_currency} = {rate:.4f} {to_currency}. "
+                f"Latest available exchange rate from "
+                f"{rate_date}: "
+                f"1 {from_currency} = "
+                f"{rate:.4f} {to_currency}. "
                 f"{amount:.2f} {from_currency} is approximately "
                 f"{converted_amount:.2f} {to_currency}."
             )
@@ -390,7 +432,7 @@ class Assistant(Agent):
 
             raise ToolError(
                 "The exchange-rate service is temporarily unavailable. "
-                "I don't want to guess the rate, so please try again shortly."
+                "I don't want to guess the rate."
             )
 
 
@@ -400,17 +442,13 @@ class Assistant(Agent):
         context: RunContext,
         reason: str,
     ) -> str:
-        """
-        Create a human support request after the caller explicitly
-        gives permission.
 
-        This is used for situations such as suspected fraud,
-        unauthorized transactions, serious account issues, or
-        requests to speak with a human representative.
-        """
+        """Create a human support request after permission."""
 
-        # Generate a simple reference ID for the Day 7 escalation demo.
-        reference_id = f"FIN-{str(uuid.uuid4())[:4].upper()}"
+        reference_id = (
+            f"FIN-{str(uuid.uuid4())[:4].upper()}"
+        )
+
 
         logger.info(
             f"Human escalation created | "
@@ -418,6 +456,12 @@ class Assistant(Agent):
             f"Caller: {self.user_id} | "
             f"Reason: {reason}"
         )
+
+
+        # A successfully created human-help request
+        # is a successful call outcome.
+        self.call_success = True
+
 
         return (
             f"Human support request created successfully. "
@@ -429,35 +473,77 @@ class Assistant(Agent):
 server = AgentServer()
 
 
-def prewarm(proc: JobProcess):
+def prewarm(
+    proc: JobProcess,
+):
 
-    proc.userdata["vad"] = silero.VAD.load()
+    proc.userdata["vad"] = (
+        silero.VAD.load()
+    )
 
 
 server.setup_fnc = prewarm
 
 
-@server.rtc_session(agent_name="my-agent")
-async def my_agent(ctx: JobContext):
+@server.rtc_session(
+    agent_name="my-agent"
+)
+async def my_agent(
+    ctx: JobContext,
+):
 
     ctx.log_context_fields = {
         "room": ctx.room.name,
     }
 
 
+    # Connect to LiveKit room
     await ctx.connect()
 
 
-    participant = await ctx.wait_for_participant()
+    # Wait for caller
+    participant = (
+        await ctx.wait_for_participant()
+    )
 
 
-    user_id = participant.identity
+    user_id = (
+        participant.identity
+    )
+
+
+    # ============================================
+    # DAY 8 — START CALL TRACKING
+    # ============================================
+
+    channel = (
+        "sip"
+        if participant.kind
+        == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
+        else "browser"
+    )
+
+
+    call_id = start_call(
+        channel=channel
+    )
+
+
+    logger.info(
+        f"CALL STARTED | "
+        f"call_id={call_id} | "
+        f"channel={channel}"
+    )
 
 
     logger.info(
         f"Caller joined: identity={user_id}"
     )
 
+
+    # ============================================
+    # CREATE AGENT SESSION
+    # ============================================
 
     session = AgentSession(
 
@@ -487,11 +573,23 @@ async def my_agent(ctx: JobContext):
     )
 
 
+    # ============================================
+    # CREATE ASSISTANT
+    # ============================================
+
+    agent = Assistant(
+        user_id=user_id,
+        call_id=call_id,
+    )
+
+
+    # ============================================
+    # START VOICE SESSION
+    # ============================================
+
     await session.start(
 
-        agent=Assistant(
-            user_id=user_id
-        ),
+        agent=agent,
 
         room=ctx.room,
 
@@ -513,6 +611,52 @@ async def my_agent(ctx: JobContext):
     )
 
 
+    # ============================================
+    # DAY 8 — SUCCESS
+    # ============================================
+
+    # session.start() completed successfully,
+    # so the voice agent successfully connected
+    # and started handling the caller.
+
+    agent.call_success = True
+
+
+    # IMPORTANT:
+    # Save SUCCESS immediately instead of waiting
+    # for the shutdown callback.
+
+    end_call(
+        call_id=call_id,
+        outcome="success",
+    )
+
+
+    logger.info(
+        f"DAY8 CALL SUCCESS | "
+        f"call_id={call_id}"
+    )
+
+
+    # ============================================
+    # OPTIONAL SHUTDOWN LOG
+    # ============================================
+
+    async def on_shutdown():
+
+        logger.info(
+            f"DAY8 CALL ENDED | "
+            f"call_id={call_id}"
+        )
+
+
+    ctx.add_shutdown_callback(
+        on_shutdown
+    )
+
+
 if __name__ == "__main__":
 
-    cli.run_app(server)
+    cli.run_app(
+        server
+    )
