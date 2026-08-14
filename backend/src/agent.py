@@ -109,6 +109,20 @@ HUMAN ESCALATION:
 - Never claim that a human has already contacted the caller.
 - Never claim that an issue has already been resolved.
 
+GOVERNMENT SCHEME SPECIALIST HANDOFF:
+
+- You are the main Financial Services Assistant.
+- Handle normal financial questions yourself.
+- If the caller needs detailed help with an Indian government scheme,
+  use transfer_to_government_scheme_specialist.
+- Examples include government scheme eligibility, benefits, required
+  documents, application process, or deadlines.
+- Do NOT hand off normal questions about savings, fixed deposits,
+  mutual funds, budgeting, or currency conversion.
+- Before handing off, clearly tell the caller:
+  "I’ll connect you with our Government Scheme Specialist."
+- The specialist will continue the conversation using the existing context.
+- The caller should NOT have to repeat their question.
 
 LANGUAGE:
 
@@ -117,7 +131,45 @@ LANGUAGE:
 - Hindi must be written in Devanagari script.
 - Do not write Hindi using Roman/English letters.
 """
+class GovernmentSchemeSpecialist(Agent):
+    def __init__(self, chat_ctx=None) -> None:
+        super().__init__(
+            instructions="""
+You are the Government Scheme Specialist for a Financial Services voice assistant.
 
+Your ONLY job is to help users understand Indian government financial and welfare schemes.
+
+You can help with:
+- government scheme eligibility
+- scheme benefits
+- required documents
+- basic application process
+- general scheme information
+
+Rules:
+- Stay focused on government schemes.
+- Do not invent eligibility rules, benefits, deadlines, or documents.
+- If information is uncertain, clearly tell the user to verify it on the official government website.
+- Never ask for or store Aadhaar numbers, PAN numbers, bank account numbers,
+  OTPs, passwords, UPI PINs, card numbers, or other sensitive financial credentials.
+- Give concise, natural answers suitable for a voice conversation.
+- The user has already explained their question to the main assistant.
+  Do NOT ask them to repeat the entire problem.
+
+When you take over, introduce yourself briefly as the Government Scheme Specialist
+and continue answering the user's existing question.
+""",
+            chat_ctx=chat_ctx,
+        )
+
+    async def on_enter(self) -> None:
+        await self.session.generate_reply(
+            instructions=(
+                "Briefly introduce yourself as the Government Scheme Specialist "
+                "and continue helping with the user's existing question. "
+                "Do not ask the user to repeat their question."
+            )
+        )
 
 class Assistant(Agent):
 
@@ -135,6 +187,35 @@ class Assistant(Agent):
 
         super().__init__(
             instructions=SYSTEM_PROMPT
+        )
+    @function_tool
+    async def transfer_to_government_scheme_specialist(
+        self,
+        context: RunContext,
+    ):
+        """
+        Transfer the caller to the Government Scheme Specialist.
+
+        Use this ONLY when the caller needs detailed help with:
+        - Indian government schemes
+        - government scheme eligibility
+        - scheme benefits
+        - required documents
+        - government scheme application process
+        - government scheme deadlines
+
+        Do NOT use this for normal financial questions such as:
+        savings, fixed deposits, mutual funds, budgeting, or currency conversion.
+        """
+        logger.info(
+            f"HANDOFF | Government Scheme Specialist | call_id={self.call_id}"
+        )
+
+        return (
+            GovernmentSchemeSpecialist(
+                chat_ctx=self.chat_ctx.copy(exclude_instructions=True)
+            ),
+            "I’ll connect you with our Government Scheme Specialist."
         )
 
 
