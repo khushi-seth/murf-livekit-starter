@@ -1,278 +1,310 @@
-# Voice Agent Starter — Powered by Murf Falcon
+# 🎙️ Voice AI Financial Assistant — VoiceForBharat
 
-Build a production voice AI agent in 5 minutes. Powered by the fastest TTS on the market - swap the system prompt to build anything from customer support to language tutors.
+A real-time **Financial Services Voice AI Agent** built during **10 Days of Voice Agents — VoiceForBharat Edition**.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Murf Falcon](https://img.shields.io/badge/TTS-Murf%20Falcon-6366F1)](https://murf.ai/api/docs/text-to-speech/streaming) [![LiveKit](https://img.shields.io/badge/Transport-LiveKit-002cf2)](https://docs.livekit.io) [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+The project combines **Murf Falcon, LiveKit, LLMs, Speech-to-Text, Twilio, persistent memory, tools, analytics, human escalation, and specialist handoffs** to create a more natural voice-first financial assistance experience.
+
+## 🚀 What Does It Do?
+
+The agent allows users to interact with a financial assistant through voice instead of relying only on traditional text-based interfaces.
+
+Users can ask questions such as:
+
+* "Am I eligible for this scheme?"
+* "What documents do I need?"
+* "Can you explain this in simple language?"
+* "Can you help me with my request?"
+
+The agent can understand the conversation, respond using voice, remember relevant information, use tools, and escalate when necessary.
+
+## ✨ Key Features
+
+### 🎙️ Voice AI
+
+* Real-time voice conversations
+* Speech-to-Text
+* LLM-powered responses
+* Text-to-Speech using **Murf Falcon**
+* Indian-focused conversational experience
+
+### 🧠 Persistent Memory
+
+The agent can remember relevant user information across conversations using a database-backed memory layer.
+
+### 🛠️ Agent Tools
+
+The agent can call functions/tools when information needs to be retrieved or calculated rather than simply generated.
+
+### 📞 Outbound Calling
+
+Integrated **Twilio** to enable phone-based conversations with the voice agent.
+
+### 👤 Human Escalation
+
+The agent can recognize situations where human assistance may be more appropriate instead of attempting to answer everything itself.
+
+### 🔄 Specialist Handoff
+
+The architecture supports transferring conversations toward specialized agents for more specific tasks.
+
+### 📊 Call Analytics
+
+Call outcomes are tracked to help understand successful and unsuccessful interactions and improve the system.
+
+### 🛡️ Guardrails
+
+The agent has defined objectives, personality, financial-assistance boundaries, and conversation safety rules.
 
 ---
 
-## Why Murf Falcon
+## 🏗️ Architecture
 
-- **55ms model latency** - fastest production TTS
-- **130ms time-to-first-audio** across 10+ global regions
-- **$0.01/1000 characters** - up to 10x cheaper than alternatives
-- **150+ voices** across 35+ languages
-- **99.38% pronunciation accuracy**
+```text
+                         USER
+                           │
+                           ▼
+                    🎙️ Voice Input
+                           │
+                           ▼
+                    Speech-to-Text
+                           │
+                           ▼
+                    ┌──────────────┐
+                    │   LiveKit    │
+                    │ Voice Agent  │
+                    └──────┬───────┘
+                           │
+                  ┌────────┴────────┐
+                  ▼                 ▼
+                LLM            Memory / Tools
+                  │                 │
+                  └────────┬────────┘
+                           ▼
+                    Agent Response
+                           │
+                           ▼
+                     Murf Falcon
+                           │
+                           ▼
+                     🔊 Voice Output
+                           │
+                           ▼
+                         USER
+```
 
----
+### Phone Architecture
 
-## Architecture
-
-```mermaid
-flowchart LR
-    A[🎙️ User speaks] -->|audio| B[Deepgram STT]
-    B -->|text| C[LLM]
-    C -->|response text| D[Murf Falcon TTS]
-    D -->|audio| E[LiveKit]
-    E -->|stream| F[🔊 User hears]
-
-    style A fill:#444441,stroke:#888780,color:#fff
-    style B fill:#185FA5,stroke:#85B7EB,color:#fff
-    style C fill:#534AB7,stroke:#AFA9EC,color:#fff
-    style D fill:#0F6E56,stroke:#5DCAA5,color:#fff
-    style E fill:#D85A30,stroke:#F0997B,color:#fff
-    style F fill:#444441,stroke:#888780,color:#fff
+```text
+        User Phone
+             │
+             ▼
+           Twilio
+             │
+             ▼
+      LiveKit Voice Agent
+             │
+      ┌──────┼───────┐
+      ▼      ▼       ▼
+   Memory  Tools  Analytics
+             │
+             ▼
+     Human / Specialist
+       Escalation
 ```
 
 ---
 
-## Quickstart
+## 🧰 Tech Stack
 
-### Prerequisites
+| Component      | Technology      |
+| -------------- | --------------- |
+| Voice AI       | LiveKit Agents  |
+| Text-to-Speech | Murf Falcon     |
+| LLM            | Google Gemini   |
+| Speech-to-Text | Deepgram        |
+| Telephony      | Twilio          |
+| Backend        | Python          |
+| Memory         | SQLite          |
+| Frontend       | Next.js / React |
+| Styling        | Tailwind CSS    |
+| Environment    | `.env.local`    |
 
-- **Python** 3.10+
-- **[uv](https://docs.astral.sh/uv/)** - fast Python package manager
-  ```bash
-  # macOS/Linux
-  curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Windows (PowerShell)
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  ```
-- **Node.js** 18+
-- **pnpm** — fast Node package manager
-  ```bash
-  npm install -g pnpm
-  ```
-- A [LiveKit](https://cloud.livekit.io/) project (free tier available)
+---
 
-### Step 1: Clone the repo
+## 📂 Project Structure
+
+```text
+murf-livekit-starter/
+│
+├── backend/
+│   ├── src/
+│   │   ├── agent.py
+│   │   └── memory.py
+│   ├── .env.local
+│   └── ...
+│
+├── frontend/
+│   ├── components/
+│   │   └── app/
+│   └── ...
+│
+└── README.md
+```
+
+> **Note:** API keys and private credentials are intentionally not included in this repository.
+
+---
+
+## ⚙️ Getting Started
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/murf-ai/murf-livekit-starter.git
+git clone YOUR_GITHUB_REPOSITORY_URL
 cd murf-livekit-starter
 ```
 
-### Step 2: Set up environment variables
+### 2. Configure environment variables
 
-Create `.env.local` in both `backend/` and `frontend/` (copy from `.env.example` in each). You need:
+Create:
 
-| Variable                               | Where to get it                                        | Required |
-| -------------------------------------- | ------------------------------------------------------ | -------- |
-| `LIVEKIT_URL`                          | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_KEY`                      | LiveKit Cloud dashboard                                | Yes      |
-| `LIVEKIT_API_SECRET`                   | LiveKit Cloud dashboard                                | Yes      |
-| `MURF_API_KEY`                         | [murf.ai/api/dashboard](https://murf.ai/api/dashboard) | Yes      |
-| `DEEPGRAM_API_KEY`                     | [deepgram.com](https://deepgram.com)                   | Yes      |
-| `GOOGLE_API_KEY` (or `OPENAI_API_KEY`) | Depends on LLM choice                                  | Yes      |
+```text
+backend/.env.local
+```
 
-### Step 3: Install backend dependencies
+Add your credentials:
+
+```env
+LIVEKIT_URL=your_livekit_url
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+
+MURF_API_KEY=your_murf_api_key
+
+# Add other required service credentials
+# according to your configuration
+```
+
+**Never commit API keys, phone numbers, caller data, or other private credentials.**
+
+Make sure `.env.local` is included in `.gitignore`.
+
+### 3. Start the backend
 
 ```bash
 cd backend
-uv sync
-uv run python src/agent.py download-files
+uv run python src/agent.py dev
 ```
 
-### Step 4: Install frontend dependencies
+### 4. Start the frontend
+
+Open another terminal:
 
 ```bash
 cd frontend
-pnpm install
+pnpm dev
 ```
 
-### Step 5: Run it
-
-**Option A - All-in-one (from repo root):**
-
-```bash
-# macOS/Linux
-chmod +x start_app.sh
-./start_app.sh
-
-# Windows (PowerShell)
-.\start_app.ps1
-```
-
-**Option B - Separate terminals:**
-
-```bash
-# Terminal 1 — LiveKit Server
-livekit-server --dev
-
-# Terminal 2 — Backend agent
-cd backend && uv run python src/agent.py dev
-
-# Terminal 3 — Frontend
-cd frontend && pnpm dev
-```
-
-Then open **http://localhost:3000** in your browser.
-
-You should now see the voice agent UI. Click **Start talking**, allow microphone access, and speak — the agent will respond with Murf Falcon TTS. Ensure your backend and (if using Option B) LiveKit server are running.
+Then open the local frontend in your browser and start a voice session.
 
 ---
 
-## Deploy
+## 🧪 Testing
 
-Want to deploy this beyond localhost? You'll need to deploy **two services**: the backend agent and the frontend. Both must use the same LiveKit project.
+After starting both services:
 
-> This is a two-service app — the backend agent and the frontend UI deploy separately. You'll need both running and connected to the same LiveKit project.
-
-### Backend (Python agent) — Deploy to Railway
-
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tIVCF1?referralCode=cNjn2P&utm_medium=integration&utm_source=template&utm_campaign=generic)
-
-Set these environment variables in Railway:
-
-- `MURF_API_KEY`
-- `DEEPGRAM_API_KEY`
-- `GOOGLE_API_KEY` or `OPENAI_API_KEY`
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-
-The backend runs as a long-lived Python process that connects to LiveKit as an agent. Railway handles this well.
-
-### Frontend (Next.js) — Deploy to Vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/murf-ai/murf-livekit-starter&root-directory=frontend&env=LIVEKIT_URL,LIVEKIT_API_KEY,LIVEKIT_API_SECRET&project-name=murf-voice-agent&repository-name=murf-voice-agent)
-
-Set these environment variables in Vercel:
-
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
-- `AGENT_NAME` (optional — for explicit agent dispatch)
-
-The frontend is a standard Next.js app. Point it at the same LiveKit instance your backend agent is connected to.
-
-### Connecting them
-
-The frontend and backend don't call each other directly — they both connect to **LiveKit**, which handles the real-time audio transport.
-
-1. Use the **same** `LIVEKIT_URL`, `LIVEKIT_API_KEY`, and `LIVEKIT_API_SECRET` on both Railway and Vercel
-2. Set `AGENT_NAME=my-agent` on Vercel — this matches the `agent_name="my-agent"` registered in `backend/src/agent.py`
-3. Verify: Railway logs should show the agent connected to LiveKit. Open your Vercel URL, click **Start talking** — the agent should respond
-
-If the agent doesn't connect, double-check that both services point to the same LiveKit project and that the backend is running (check Railway logs).
+1. Open the frontend.
+2. Allow microphone permissions.
+3. Start the voice session.
+4. Ask the financial assistant a question.
+5. Test memory with a returning-user conversation.
+6. Test available tools.
+7. Test phone functionality separately if Twilio is configured.
+8. Check call outcomes and analytics.
 
 ---
 
-## Change the Use Case
+## 🔐 Security
 
-The default system prompt makes this a **customer support agent**. You can change the agent’s behavior by editing the prompt.
+Do **not** commit:
 
-**Where the prompt lives:** `backend/src/agent.py`- the `SYSTEM_PROMPT` constant (near the top of the file, after the imports). Change that string to change what your voice agent does.
-
-### Example prompts (copy-paste)
-
-**Customer Support (default):**
-
-```
-You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate.
-```
-
-**Language Tutor:**
-
-```
-You are a patient and encouraging language tutor helping the user practice conversational Spanish. Speak primarily in Spanish but switch to English to explain grammar or vocabulary when needed. Correct mistakes gently and suggest better phrasing. Keep conversations natural and fun.
+```text
+.env
+.env.local
+API keys
+Twilio credentials
+Phone numbers
+Caller information
+Database files containing private user data
 ```
 
-**AI Receptionist:**
-
-```
-You are a professional receptionist for a medical clinic. Help callers schedule appointments, answer questions about office hours and services, and take messages for doctors. Be warm but efficient. Ask for the caller's name and reason for calling upfront.
-```
-
-See the Configuration section below for voice, STT, and LLM options.
+Use environment variables for secrets and keep sensitive data out of the public repository.
 
 ---
 
-## Configuration
+## 🧩 Challenges I Faced
 
-### Murf voice
+Building the agent involved several real-world debugging challenges:
 
-Edit the `tts=murf.TTS(...)` call in `backend/src/agent.py`. Set the `voice` argument to any Murf voice ID. Examples:
+* LiveKit authentication and connection issues
+* Microphone and browser permission problems
+* Multilingual voice behavior
+* Python errors and backend debugging
+* Frontend integration issues
+* Twilio authentication and call configuration
+* Connecting browser voice and phone-based communication
+* Making memory and analytics work reliably
 
-- `Anisha` — Indian English (female, default in this starter)
-- `Pooja` — Indian English (female)
-- `Samar` — Indian English (male)
-- `Amara` — US English (female)
-- `Gordon` — US English (male)
-- `Hazel` — UK English (female)
-- `Bertie` — UK English (male)
-
-Browse all voices: [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library).
-
-### STT provider
-
-STT is configured in `backend/src/agent.py` in the `AgentSession(stt=...)` call. The default is Deepgram (`deepgram.STT(model="nova-3")`). You can swap to another LiveKit-compatible STT plugin if needed.
-
-### LLM (Gemini vs OpenAI)
-
-- **Gemini (default):** Set `GOOGLE_API_KEY` and use `llm=google.LLM(model="gemini-3.5-flash-lite")` in `agent.py`.
-- **OpenAI:** Set `OPENAI_API_KEY`, add the OpenAI plugin, and use the corresponding `llm=openai.LLM(...)` in `agent.py`.
-
-### Audio format
-
-Murf Falcon and LiveKit handle audio format internally. For advanced options, see [Murf API docs](https://murf.ai/api/docs) and [LiveKit docs](https://docs.livekit.io).
+The biggest lesson was to debug the system **layer by layer** instead of treating the entire voice agent as one component.
 
 ---
 
-## Project Structure
+## 📈 Future Improvements
 
-```
-murf-livekit-starter/
-├── backend/                 # Python voice agent (LiveKit Agents + Murf Falcon)
-│   ├── src/
-│   │   └── agent.py         # Agent entrypoint, pipeline (STT/LLM/TTS), system prompt
-│   ├── tests/               # Agent tests
-│   ├── .env.example         # Backend env template
-│   ├── pyproject.toml       # Python deps (uv)
-│   └── railway.toml         # Railway deploy config
-├── frontend/                # Next.js UI for voice sessions
-│   ├── app/
-│   │   ├── page.tsx         # Main page
-│   │   └── api/token/       # LiveKit token endpoint (dev)
-│   ├── components/          # UI (agents-ui, app config, theme)
-│   ├── app-config.ts        # Branding, title, button text, accent
-│   ├── .env.example         # Frontend env template
-│   └── package.json         # Node deps (pnpm)
-├── start_app.sh             # Start LiveKit + backend + frontend (macOS/Linux)
-├── start_app.ps1            # Start LiveKit + backend + frontend (Windows)
-├── README.md                # This file
-```
-
-For deeper documentation on each part, see:
-
-- [Backend Documentation](./backend/README.md) — agent pipeline, voice/LLM/STT configuration, testing, deployment
-- [Frontend Documentation](./frontend/README.md) — UI customization, visualizers, theming, component architecture
+* Better Hindi and code-mixed conversations
+* Lower response latency
+* More financial-service tools
+* Improved specialist routing
+* More detailed analytics
+* Better automated testing
+* Improved failure recovery
+* Production deployment
+* More robust multilingual support
 
 ---
 
-## Links
+## 🏆 10 Days of Voice Agents
 
-- [Murf API Docs](https://murf.ai/api/docs)
-- [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)
-- [LiveKit Docs](https://docs.livekit.io)
-- [Deepgram Docs](https://developers.deepgram.com)
-- [Murf Falcon Benchmarks](https://murf.ai/falcon/benchmarks)
-- [TTS Latency Benchmarker](https://github.com/sahilsgupta/tts-latency-benchmarker) — run your own p50/p95 tests across providers
-- [Murf Discord](https://discord.gg/FbKAy96Sz7)
-- [Murf Startup Incubator](https://murf.ai/api) — 50M free characters for startups
+This project was built as part of:
+
+**10 Days of Voice Agents — VoiceForBharat Edition**
+
+The challenge helped me understand how a simple voice interaction can evolve into a complete AI agent capable of:
+
+**Listening → Reasoning → Remembering → Acting → Calling → Escalating → Tracking**
 
 ---
 
-## License
+## 🔗 Links
 
-MIT
+**GitHub:** [Add your repository URL]
+
+**Blog:** [Add your published blog URL]
+
+**LinkedIn:** [Add your LinkedIn post URL]
+
+---
+
+## 🙌 Acknowledgements
+
+Built with:
+
+* **Murf Falcon**
+* **LiveKit**
+* **Google Gemini**
+* **Deepgram**
+* **Twilio**
+
+Special thanks to **Murf AI** for the VoiceForBharat challenge.
+
+#VoiceForBharat #MurfAI #MurfFalcon #VoiceAI #AIAgents #LiveKit
