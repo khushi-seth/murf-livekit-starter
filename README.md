@@ -175,10 +175,9 @@ backend/.env.local
 Add your credentials:
 
 ```env
-LIVEKIT_URL=your_livekit_url
+LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
-
 MURF_API_KEY=your_murf_api_key
 
 # Add other required service credentials
@@ -287,7 +286,7 @@ The challenge helped me understand how a simple voice interaction can evolve int
 
 ## 🔗 Links
 
-**GitHub:** [Add your repository URL]
+**GitHub:** url_added
 
 **Blog:** [Add your published blog URL]
 
